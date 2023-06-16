@@ -357,7 +357,7 @@ plt.savefig(figure_url, dpi=100, format='png', bbox_inches='tight')
 plt.show()
 
 # =============================================================================
-# PHASE VII: CROSS - VALIDATE REGRESSION MODEL
+# PHASE VII: TRAIN - TEST REGRESSION MODEL UTILIZING 10-FOLD CROSS VALIDATION
 # =============================================================================
 
 # Set the number of folds to be used throughout the cross-validation process.
@@ -365,6 +365,14 @@ folds_num = 10
 
 # Initialize the cross validator object.
 cross_validator = KFold(folds_num, shuffle=True, random_state=0)
+
+# Initialize a list container for storing the neural network regressor for each
+# training fold.
+neural_regressors = []
+
+# Initialize list containers for storing the training and testing mse and mae
+# for each fold.
+mse_train, mae_train, mse_test, mae_test = [], [], [], []
 
 # Loop through the various folds.
 for fold_idx, (train_ids, test_ids) in enumerate(cross_validator.split(data)):
@@ -400,4 +408,45 @@ for fold_idx, (train_ids, test_ids) in enumerate(cross_validator.split(data)):
     # architecture.
     Ytrain = data_train[:, 0].reshape(-1,1)
     Ytest = data_test[:, 0].reshape(-1,1)
+    # Get the dimensionality of the input patterns.
+    dim = Xtrain.shape[1]
+    # Get the number of training patterns.
+    records_num = Xtrain.shape[0]
+    # Set the number of training epochs.
+    epochs = 300
+    # Set the percentage of training patterns that will be used for validation
+    # purposes during each training epoch.
+    validation_split = 0.1
+    # Set the visualization flag to True.
+    visual_flag = True
+    # Instantiate the neural regressor class for the current training-testing
+    # fold.
+    neural_regressor = NeuralNetworkRegressor(dim, records_num, epochs, 
+                                              validation_split, visual_flag,
+                                              fold_idx+1)
+    # Train the previously initialized neural regressor.
+    neural_regressor.train_model(Xtrain, Ytrain)
+    # Test the previously initialized neural regressor.
+    neural_regressor.test_model(Xtest, Ytest)
+    # Get the training and testing mse and mae for the current fold.
+    train_mse, train_mae, test_mse, test_mae = neural_regressor.get_accuracy_metrics(
+                                                                Xtrain, 
+                                                                Ytrain, 
+                                                                Xtest, Ytest)
+    # Append the acquired measurements to the corresponding lists.
+    mse_train.append(train_mse)
+    mae_train.append(train_mae)
+    mse_test.append(test_mse)
+    mae_test.append(test_mae)
+    # Store the trained model in the designated list structure.
+    neural_regressors.append(neural_regressor)
     print(columns_size*"=")
+
+# =============================================================================
+# PHASE IX: CONSTRUCT ACCURACY DATA FRAME
+# =============================================================================
+accuracy_data = pd.DataFrame(list(zip(mse_train,mae_train,mse_test,mae_test)),
+                             columns=["MSE_TRAIN","MAE_TRAIN","MSE_TEST",
+                                      "MAE_TEST"])
+print(accuracy_data)
+print(columns_size*"=")
